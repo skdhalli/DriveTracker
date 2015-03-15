@@ -1,0 +1,219 @@
+
+<!doctype html>
+<html lang="en"> 
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+  
+  <style type="text/css">
+    body {
+      font-family: sans-serif;
+    }
+  
+      .main {
+      border: 1px solid black;
+      box-shadow: 10px 10px 5px #888;
+      border-radius: 12px;
+      padding: 20px;
+      background-color: #ddd;
+      margin: 25px;
+      width: 450px;
+      margin-left:auto;
+      margin-right:auto;  
+    }
+    
+    .logo {
+      width:275px;
+      margin-left: auto;
+      margin-right: auto;
+      display: block;
+      padding: 15px;
+    }
+    
+    .container {
+      -webkit-perspective: 300; 
+      perspective: 300;
+    }
+  </style>
+
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+  <script src="http://code.jquery.com/jquery-1.11.2.min.js"></script>
+  <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+</head>
+<body>
+  <div class="main">
+    <h2>Device Motion</h2>
+    <table>
+      <tr>
+          <td>Event Supported</td><td id="dmEvent"></td>
+        </tr>
+      <tr>
+        <td>acceleration</td><td id="moAccel"></td>
+      </tr>
+      <tr>
+        <td>accelerationIncludingGravity</td><td id="moAccelGrav"></td>
+      </tr>
+      <tr>
+        <td>rotationRate</td><td id="moRotation"></td>
+      </tr>
+      <tr>
+        <td>interval</td><td id="moInterval"></td>
+      </tr>
+    </table>
+  </div>
+    
+  <script type="text/javascript" charset="utf-8" src="../fingerprintjs/fingerprint.js"></script>
+  <script type="text/javascript" charset="utf-8">
+  
+    init();
+    
+    
+    function init() {
+        getLocation();
+      if ((window.DeviceMotionEvent) || ('listenForDeviceMovement' in window)) {
+        window.addEventListener('devicemotion', deviceMotionHandler, false);
+      } else {
+        document.getElementById("dmEvent").innerHTML = "Not supported on your device or browser.  Sorry."
+      }
+    }
+    
+    var a_x=0;
+    var a_y=0;
+    var a_z=0;
+    var lat;
+    var lng;
+    var accuracy;
+    var altitude;
+    var altitudeAccuracy;
+    var heading;
+    var speed;
+    var threshold = 150;
+    var lastTimeNoted = 0;
+    var timeDelta_secs = 2;
+    var base_uri = "http://198.199.116.105/DriveTracker/index.php"; 
+    
+    function deviceMotionHandler(eventData) {
+      var info, xyz = "[X, Y, Z]";
+      
+     
+      // Grab the acceleration including gravity from the results 
+      var acceleration = eventData.accelerationIncludingGravity;
+      
+      var perc_change_x = getPercChange(acceleration.x, a_x);
+      var perc_change_y = getPercChange(acceleration.y, a_y);
+      var perc_change_z = getPercChange(acceleration.z, a_z);
+       //console.log("X: "+perc_change_x); 
+      //console.log("Y: "+perc_change_y); 
+      //console.log("Z: "+perc_change_z);
+      var currentTime= (new Date().getTime())/1000;
+      
+      if(currentTime - this.lastTimeNoted > timeDelta_secs || this.lastTimeNoted === 0)
+      {
+            var fp1 = new Fingerprint();
+            //console.log(fp1.get());
+            this.lastTimeNoted = currentTime;
+            var time_str = getFormattedDate();
+            //console.log("Time: "+this.lastTimeNoted);   
+            if(a_x ===0 || a_y === 0 || a_z === 0 || perc_change_x > threshold || perc_change_y > threshold || perc_change_z > threshold)
+            {
+               getLocation();
+               //console.log("X: "+perc_change_x); 
+               //console.log("Y: "+perc_change_y); 
+               //console.log("Z: "+perc_change_z); 
+               this.a_x = acceleration.x;
+               //console.log("Accelection X: "+a_x);
+               this.a_y = acceleration.y;
+               //console.log("Accelection Y: "+a_y);
+               this.a_z = acceleration.z;
+               //console.log("Accelection Z: "+a_z);
+               //console.log("Latitude: "+this.lat);
+               //console.log("Longitude: "+this.lng);
+               
+               var url = base_uri+"?time="+time_str+"&a_x="+this.a_x+"&a_y="+this.a_y+"&a_z="+this.a_z+"\n\
+&lat="+this.lat+"&lng="+this.lng+"&accuracy="+this.accuracy+"&altitude="+this.altitude+"&altitudeAccuracy="+this.altitudeAccuracy+"&heading="+this.heading+"&speed="+this.speed+"&uid="+fp1.get();
+                url = url.replace(new RegExp("undefined", 'g'),"");
+                console.log(url);
+                $.get(url,function(data){
+                    console.log("Loaded accel point");
+                });
+                
+            }
+        
+       }
+      
+      
+      
+      info = xyz.replace("X", round(acceleration.x));
+      info = info.replace("Y", round(acceleration.y));
+      info = info.replace("Z", round(acceleration.z));
+      document.getElementById("moAccel").innerHTML = info;
+
+      // Grab the acceleration including gravity from the results
+      
+      info = xyz.replace("X", round(acceleration.x));
+      info = info.replace("Y", round(acceleration.y));
+      info = info.replace("Z", round(acceleration.z));
+      document.getElementById("moAccelGrav").innerHTML = info;
+
+      // Grab the acceleration including gravity from the results
+      var rotation = eventData.rotationRate;
+      info = xyz.replace("X", round(rotation.alpha));
+      info = info.replace("Y", round(rotation.beta));
+      info = info.replace("Z", round(rotation.gamma));
+      document.getElementById("moRotation").innerHTML = info;
+
+      info = eventData.interval;
+      document.getElementById("moInterval").innerHTML = info;
+    }
+
+function getFormattedDate() {
+    var date = new Date();
+    var str = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " +  date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+
+    return str;
+}
+
+    function getPercChange(orig_val, new_val)
+    {
+        //console.log("Original: "+orig_val);
+        if(orig_val === 0)
+        {
+            return 0;
+        }
+        else
+        {
+            return Math.abs((orig_val-new_val)*100.00/orig_val);
+        }
+    }
+    
+    function round(val) {
+      var amt = 10;
+      return Math.round(val * amt) /  amt;
+    }
+    
+    function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition);
+    } else {
+       //console.log("Geolocation is not supported by this browser.");
+    }
+}
+    function showPosition(position) {
+        //console.log(position);
+        this.lat = position.coords.latitude;
+        this.lng = position.coords.longitude;
+        this.accuracy = position.coords.accuracy;
+        this.altitude = position.coords.altitude;
+        this.altitudeAccuracy = position.coords.altitudeAccuracy;
+        this.heading = position.coords.heading;
+        this.speed = position.coords.speed;
+        
+        //console.log("Latitude: " + position.coords.latitude + 
+        //",Longitude: " + position.coords.longitude); 
+    }
+
+  </script>
+  
+</body>
+</html>
